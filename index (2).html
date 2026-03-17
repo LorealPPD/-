@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>L'Oreal PPD — Система заказов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--bg-subtle:#111;
+  --glass:rgba(255,255,255,.06);--glass-hover:rgba(255,255,255,.1);
+  --glass-border:rgba(255,255,255,.1);--glass-border-hover:rgba(255,255,255,.18);
+  --fg:#f0ede8;--fg-muted:rgba(240,237,232,.5);--fg-dim:rgba(240,237,232,.35);
+  --accent:#c8ff00;--accent-fg:#0a0a0a;
+  --green:#34d399;--green-bg:rgba(52,211,153,.12);
+  --red:#f472b6;--red-bg:rgba(244,114,182,.12);
+  --radius:16px;--radius-sm:10px;--radius-xs:8px;
+  --blur:24px;
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+  --shadow:0 8px 32px rgba(0,0,0,.4);--shadow-sm:0 2px 12px rgba(0,0,0,.3);
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--fg);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 20%,rgba(200,255,0,.04) 0%,transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(255,255,255,.02) 0%,transparent 50%);pointer-events:none;z-index:0}
+.glass{background:var(--glass);backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));border:1px solid var(--glass-border);border-radius:var(--radius);box-shadow:var(--shadow-sm);transition:border-color .2s,background .2s}
+.glass:hover{border-color:var(--glass-border-hover)}
+.glass-p{padding:24px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:50px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .2s;font-family:var(--font);letter-spacing:-.01em}
+.btn-accent{background:var(--accent);color:var(--accent-fg)}
+.btn-accent:hover{box-shadow:0 0 24px rgba(200,255,0,.25);transform:translateY(-1px)}
+.btn-accent:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none}
+.btn-glass{background:var(--glass);color:var(--fg);border:1px solid var(--glass-border);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.btn-glass:hover{background:var(--glass-hover);border-color:var(--glass-border-hover)}
+.btn-sm{padding:8px 16px;font-size:13px}
+.btn-lg{padding:12px 28px;font-size:15px}
+.btn-icon{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--glass-border);background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);cursor:pointer;font-size:18px;line-height:1;color:var(--fg);transition:all .2s}
+.btn-icon:hover{background:var(--glass-hover);border-color:var(--glass-border-hover);transform:scale(1.05)}
+input,select,textarea{display:block;width:100%;padding:10px 16px;border:1px solid var(--glass-border);border-radius:50px;font-size:14px;font-family:var(--font);background:rgba(255,255,255,.05);color:var(--fg);outline:none;transition:all .2s;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+textarea{border-radius:var(--radius-sm)}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,255,0,.1)}
+input::placeholder{color:var(--fg-dim)}
+select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(240,237,232,.5)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:40px}
+select option{background:var(--bg);color:var(--fg)}
+label{display:block;font-size:11px;font-weight:600;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.badge{display:inline-flex;align-items:center;padding:6px 14px;border-radius:50px;font-size:12px;font-weight:600;letter-spacing:.02em}
+.badge-admin{background:rgba(200,255,0,.12);color:var(--accent);border:1px solid rgba(200,255,0,.2)}
+.badge-partner{background:var(--green-bg);color:var(--green);border:1px solid rgba(52,211,153,.2)}
+.banner{background:linear-gradient(135deg,rgba(200,255,0,.15) 0%,rgba(200,255,0,.05) 100%);border:1px solid rgba(200,255,0,.2);border-radius:var(--radius);padding:20px 24px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.banner-label{font-size:14px;font-weight:500;color:var(--fg-muted)}
+.banner-value{font-size:28px;font-weight:800;color:var(--accent);letter-spacing:-.02em}
+.tbl-header{display:none;grid-template-columns:2fr 1fr 140px 1fr;gap:16px;padding:12px 24px;border-bottom:1px solid var(--glass-border);font-size:11px;font-weight:600;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.8px}
+.product-row{display:grid;grid-template-columns:2fr 1fr 140px 1fr;gap:16px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,.04);align-items:center;transition:background .15s}
+.product-row:hover{background:rgba(255,255,255,.03)}
+.product-row:last-child{border-bottom:0}
+.qty-wrap{display:flex;align-items:center;gap:10px}
+.qty-val{min-width:32px;text-align:center;font-weight:700;font-size:16px;color:var(--fg)}
+.item-total{text-align:right;font-weight:700;color:var(--accent);font-size:16px}
+.modal-overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.modal-card{max-width:440px;width:100%;animation:zoomIn .25s cubic-bezier(.16,1,.3,1)}
+@keyframes zoomIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+.check-circle{width:72px;height:72px;border-radius:50%;background:var(--green-bg);border:1px solid rgba(52,211,153,.2);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;color:var(--green)}
+.container{max-width:1200px;margin:0 auto;padding:20px 16px;position:relative;z-index:1}
+.flex-between{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.nav-bar{display:flex;gap:8px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap;gap:12px}
+.header-left{display:flex;align-items:center;gap:12px}
+.grid-info{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+.order-card{margin-bottom:16px}
+.order-meta{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:12px;font-size:13px}
+.order-items{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px}
+.order-item-row{display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid rgba(255,255,255,.04)}
+.order-item-row:last-child{border-bottom:0}
+.settings-row{display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:8px;align-items:end;margin-bottom:10px}
+.user-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:10px}
+.btn-danger{color:var(--red);border-color:rgba(244,114,182,.2)}
+.btn-danger:hover{background:var(--red-bg)}
+.footer{text-align:center;padding:32px 0 20px;font-size:12px;color:var(--fg-dim);letter-spacing:.5px}
+.hidden{display:none!important}
+.error-box{margin-top:16px;padding:14px;border-radius:var(--radius-sm);background:var(--red-bg);border:1px solid rgba(244,114,182,.2);text-align:center}
+.error-box p{font-size:14px;font-weight:500;color:var(--red)}
+.toast{position:fixed;bottom:24px;right:24px;z-index:100;background:var(--accent);color:var(--accent-fg);padding:14px 24px;border-radius:50px;font-size:14px;font-weight:600;box-shadow:0 4px 24px rgba(200,255,0,.3);animation:slideUp .3s cubic-bezier(.16,1,.3,1);opacity:0;pointer-events:none;transition:opacity .3s}
+.toast.show{opacity:1;pointer-events:auto}
+.toast-error{background:var(--red);color:#fff;box-shadow:0 4px 24px rgba(244,114,182,.3)}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.section-title{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.section-label{font-size:11px;font-weight:600;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.info-value{font-size:14px;font-weight:500;color:var(--fg)}
+.sending-indicator{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:50px;background:rgba(200,255,0,.1);border:1px solid rgba(200,255,0,.15);font-size:13px;color:var(--accent);font-weight:500;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.status-sent{color:var(--green);font-size:12px;font-weight:500}
+.status-failed{color:var(--red);font-size:12px;font-weight:500}
+@media(max-width:640px){
+  .tbl-header{display:none!important}
+  .product-row{grid-template-columns:1fr;gap:10px}
+  .item-total{text-align:left}
+  .settings-row{grid-template-columns:1fr 1fr}
+  .settings-row>div:nth-child(2){grid-column:span 2}
+  .user-row{grid-template-columns:1fr 1fr}
+  .banner-value{font-size:22px}
+  .glass-p{padding:18px}
+}
+@media(min-width:641px){.tbl-header{display:grid}}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+
+<!-- ======== LOGIN SCREEN ======== -->
+<div id="login-screen">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;position:relative;z-index:1">
+    <div class="glass" style="width:100%;max-width:420px">
+      <div class="glass-p" style="padding:44px 36px">
+        <div style="text-align:center;margin-bottom:36px">
+          <div style="width:56px;height:56px;border-radius:50%;background:rgba(200,255,0,.1);border:1px solid rgba(200,255,0,.2);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:24px">📋</div>
+          <h1 style="font-size:22px;font-weight:800;letter-spacing:-.03em">Система Заказов</h1>
+          <p style="font-size:14px;color:var(--fg-muted);margin-top:6px">Войдите в свой аккаунт</p>
+        </div>
+        <form id="login-form">
+          <div style="margin-bottom:18px"><label for="login-input">Логин</label><input id="login-input" placeholder="Введите логин" required></div>
+          <div style="margin-bottom:18px"><label for="password-input">Пароль</label><input id="password-input" type="password" placeholder="Введите пароль" required></div>
+          <button type="submit" class="btn btn-accent" style="width:100%;justify-content:center;margin-top:8px;font-size:15px">Войти</button>
+          <div id="login-error" class="error-box hidden"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======== MAIN APP ======== -->
+<div id="main-screen" class="hidden">
+  <div class="container">
+    <div class="header">
+      <div class="header-left">
+        <span id="role-badge" class="badge"></span>
+        <span id="user-name" style="font-size:14px;color:var(--fg-muted)"></span>
+      </div>
+      <button class="btn btn-glass btn-sm" onclick="logout()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Выйти
+      </button>
+    </div>
+
+    <!-- Admin Navigation -->
+    <div id="admin-nav" class="nav-bar hidden">
+      <button class="btn btn-sm" id="nav-orders" onclick="switchTab('orders')">📋 Заказы</button>
+      <button class="btn btn-sm" id="nav-admin" onclick="switchTab('admin')">📊 Панель заказов</button>
+      <button class="btn btn-sm" id="nav-settings" onclick="switchTab('settings')">⚙️ Настройки</button>
+    </div>
+
+    <!-- Partner Navigation -->
+    <div id="partner-nav" class="nav-bar hidden">
+      <button class="btn btn-sm" id="nav-p-neworder" onclick="switchTab('orders')">📋 Новый заказ</button>
+      <button class="btn btn-sm" id="nav-p-history" onclick="switchTab('history')">📂 Мои заказы</button>
+    </div>
+
+    <!-- TAB: ORDER FORM -->
+    <div id="tab-orders">
+      <div class="glass" style="margin-bottom:20px">
+        <div class="glass-p">
+          <h1 id="brand-title" class="section-title" style="margin-bottom:18px"></h1>
+          <div class="grid-info">
+            <div><p class="section-label">Дата</p><p id="info-date" class="info-value"></p></div>
+            <div><p class="section-label">Месяц</p><p id="info-month" class="info-value"></p></div>
+            <div><p class="section-label">Организация</p><p id="info-address" class="info-value"></p></div>
+            <div><p class="section-label">Доп. информация</p><p id="info-extra" class="info-value"></p></div>
+          </div>
+        </div>
+      </div>
+      <div class="glass" style="margin-bottom:20px"><div style="padding:16px"><input id="search-input" placeholder="🔍  Поиск по SKU или наименованию..." oninput="renderProducts()"></div></div>
+      <div class="banner"><span class="banner-label">Общая сумма заказа</span><span class="banner-value" id="total-banner">0 ₽</span></div>
+      <div class="glass" style="margin-bottom:20px;overflow:hidden">
+        <div class="tbl-header"><div>SKU / Наименование</div><div>Цена</div><div>Количество</div><div style="text-align:right">Сумма</div></div>
+        <div id="products-list"></div>
+      </div>
+      <div class="glass" style="margin-bottom:20px">
+        <div class="glass-p" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">
+          <p style="font-size:18px;font-weight:700;letter-spacing:-.02em">Итого: <span id="total-bottom" style="color:var(--accent)">0 ₽</span></p>
+          <button class="btn btn-accent btn-lg" id="submit-btn" onclick="submitOrder()">Оформить заказ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: PARTNER ORDER HISTORY -->
+    <div id="tab-history" class="hidden">
+      <div class="glass">
+        <div class="glass-p">
+          <h2 class="section-title" style="margin-bottom:24px">📂 Мои заказы</h2>
+          <div id="partner-history-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: ADMIN ORDERS -->
+    <div id="tab-admin" class="hidden">
+      <div class="glass">
+        <div class="glass-p">
+          <div class="flex-between" style="margin-bottom:24px">
+            <h2 class="section-title">Заказы партнёров</h2>
+            <button class="btn btn-accent btn-sm" onclick="exportAllExcel()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Экспорт всех в Excel
+            </button>
+          </div>
+          <div id="admin-orders-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: SETTINGS -->
+    <div id="tab-settings" class="hidden">
+      <div class="glass">
+        <div class="glass-p">
+          <h2 class="section-title" style="margin-bottom:24px">Настройки системы</h2>
+          <div style="margin-bottom:28px">
+            <div style="margin-bottom:18px"><label>Название бренда</label><input id="s-brand"></div>
+            <div style="margin-bottom:18px"><label>Месяц</label><input id="s-month"></div>
+            <div style="margin-bottom:18px"><label>Организация / Юр. адрес</label><input id="s-address"></div>
+            <div style="margin-bottom:18px"><label>Дополнительная информация</label><textarea id="s-info" rows="3"></textarea></div>
+          </div>
+          <h3 style="font-weight:700;font-size:16px;margin-bottom:14px">Товары</h3>
+          <div id="settings-products"></div>
+          <button class="btn btn-glass btn-sm" onclick="addProduct()" style="margin-bottom:28px">+ Добавить товар</button>
+          <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:28px">
+            <h3 style="font-weight:700;font-size:16px;margin-bottom:14px">Пользователи</h3>
+            <div id="settings-users"></div>
+            <button class="btn btn-glass btn-sm" onclick="addUser()">+ Добавить пользователя</button>
+          </div>
+          <div style="border-top:1px solid rgba(255,255,255,.06);margin-top:28px;padding-top:28px">
+            <button class="btn btn-accent" onclick="saveSettings()">Сохранить настройки</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">L'Oreal PPD</div>
+  </div>
+</div>
+
+<!-- Thank You Modal -->
+<div id="thankyou-modal" class="modal-overlay hidden">
+  <div class="glass modal-card">
+    <div class="glass-p" style="padding:44px;text-align:center">
+      <div class="check-circle">✓</div>
+      <h2 style="font-size:20px;font-weight:800;margin-bottom:8px;letter-spacing:-.02em">Спасибо за заказ!</h2>
+      <p style="font-size:14px;color:var(--fg-muted);margin-bottom:4px">Ваш заказ успешно оформлен</p>
+      <p id="thankyou-order-id" style="font-size:14px;font-weight:600;color:var(--accent);margin-bottom:12px"></p>
+      <p id="thankyou-telegram-status" style="margin-bottom:24px"></p>
+      <button class="btn btn-accent" onclick="closeThankyou()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+/* ====== TELEGRAM CONFIG ====== */
+const TG_BOT_TOKEN = '8588386935:AAG27X4DSCO48gpndSiAd6uAxMeMJJ_M4V0';
+const TG_CHAT_ID = '326943946';
+
+/* ====== DATA STORE ====== */
+let currentUser = null;
+let currentTab = 'orders';
+let cart = {};
+
+const DATA = {
+  users: [
+    { id: '1', login: 'Di', password: '111', role: 'admin', displayName: 'Di (Администратор)' },
+    { id: '2', login: 'Сергей', password: '111', role: 'partner', displayName: 'Сергей' }
+  ],
+  settings: {
+    brand: 'Название Бренда',
+    month: 'Март 2026',
+    address: 'г. Москва, ул. Примерная, д. 1',
+    info: 'ИНН: 1234567890'
+  },
+  products: [
+    { sku: 'SKU001', name: 'Товар 1', price: 1500 },
+    { sku: 'SKU002', name: 'Товар 2', price: 2000 },
+    { sku: 'SKU003', name: 'Товар 3', price: 2500 }
+  ],
+  orders: []
+};
+
+let nextUserId = 3;
+let nextOrderId = 1;
+
+/* ====== LOCAL STORAGE for partner history ====== */
+function getPartnerOrders(login) {
+  try { return JSON.parse(localStorage.getItem('orders_' + login) || '[]'); } catch(e) { return []; }
+}
+function savePartnerOrder(login, order) {
+  const orders = getPartnerOrders(login);
+  orders.unshift(order);
+  try { localStorage.setItem('orders_' + login, JSON.stringify(orders)); } catch(e) {}
+}
+
+/* ====== HELPERS ====== */
+function fmt(n) { return n.toLocaleString('ru-RU') + ' ₽'; }
+function todayStr() { return new Date().toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' }); }
+function genOrderId() { return 'ORD-' + Date.now() + '-' + (nextOrderId++); }
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' toast-error' : '');
+  setTimeout(() => { t.className = 'toast'; }, 3000);
+}
+
+/* ====== LOGIN ====== */
+document.getElementById('login-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const login = document.getElementById('login-input').value.trim();
+  const pass = document.getElementById('password-input').value;
+  const user = DATA.users.find(u => u.login.toLowerCase() === login.toLowerCase() && u.password === pass);
+  if (!user) {
+    document.getElementById('login-error').innerHTML = '<p>Неверный логин или пароль</p>';
+    show('login-error');
+    return;
+  }
+  currentUser = user;
+  hide('login-error');
+  hide('login-screen');
+  show('main-screen');
+  initMainScreen();
+});
+
+function logout() {
+  currentUser = null;
+  cart = {};
+  document.getElementById('login-input').value = '';
+  document.getElementById('password-input').value = '';
+  hide('main-screen');
+  show('login-screen');
+}
+
+/* ====== MAIN SCREEN ====== */
+function initMainScreen() {
+  const badge = document.getElementById('role-badge');
+  const isAdmin = currentUser.role === 'admin';
+  badge.textContent = isAdmin ? 'Администратор' : 'Партнёр';
+  badge.className = 'badge ' + (isAdmin ? 'badge-admin' : 'badge-partner');
+  document.getElementById('user-name').textContent = currentUser.displayName;
+  if (isAdmin) { show('admin-nav'); hide('partner-nav'); }
+  else { hide('admin-nav'); show('partner-nav'); }
+  switchTab('orders');
+}
+
+/* ====== TAB SWITCHING ====== */
+function switchTab(tab) {
+  currentTab = tab;
+  hide('tab-orders'); hide('tab-admin'); hide('tab-settings'); hide('tab-history');
+  show('tab-' + tab);
+
+  // Admin nav highlighting
+  ['nav-orders','nav-admin','nav-settings'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'btn btn-sm ' + (id === 'nav-' + tab ? 'btn-accent' : 'btn-glass');
+  });
+
+  // Partner nav highlighting
+  ['nav-p-neworder','nav-p-history'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const active = (id === 'nav-p-neworder' && tab === 'orders') || (id === 'nav-p-history' && tab === 'history');
+    el.className = 'btn btn-sm ' + (active ? 'btn-accent' : 'btn-glass');
+  });
+
+  if (tab === 'orders') renderOrderForm();
+  if (tab === 'admin') renderAdminOrders();
+  if (tab === 'settings') renderSettings();
+  if (tab === 'history') renderPartnerHistory();
+}
+
+/* ====== ORDER FORM ====== */
+function renderOrderForm() {
+  document.getElementById('brand-title').textContent = DATA.settings.brand;
+  document.getElementById('info-date').textContent = todayStr();
+  document.getElementById('info-month').textContent = DATA.settings.month;
+  document.getElementById('info-address').textContent = DATA.settings.address;
+  document.getElementById('info-extra').textContent = DATA.settings.info;
+  renderProducts();
+}
+
+function renderProducts() {
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  const filtered = DATA.products.filter(p => !q || p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
+  document.getElementById('products-list').innerHTML = filtered.map(p => {
+    const qty = cart[p.sku] || 0;
+    return `<div class="product-row">
+      <div><p style="font-weight:600;font-size:14px">${esc(p.sku)}</p><p style="font-size:13px;color:var(--fg-muted)">${esc(p.name)}</p></div>
+      <p style="font-weight:600;font-size:14px">${fmt(p.price)}</p>
+      <div class="qty-wrap">
+        <button class="btn-icon" onclick="changeQty('${esc(p.sku)}',-1)">−</button>
+        <span class="qty-val">${qty}</span>
+        <button class="btn-icon" onclick="changeQty('${esc(p.sku)}',1)">+</button>
+      </div>
+      <p class="item-total">${fmt(qty * p.price)}</p>
+    </div>`;
+  }).join('');
+  updateTotal();
+}
+
+function changeQty(sku, delta) {
+  cart[sku] = Math.max(0, (cart[sku] || 0) + delta);
+  renderProducts();
+}
+
+function updateTotal() {
+  const total = DATA.products.reduce((s, p) => s + (cart[p.sku] || 0) * p.price, 0);
+  document.getElementById('total-banner').textContent = fmt(total);
+  document.getElementById('total-bottom').textContent = fmt(total);
+  document.getElementById('submit-btn').disabled = total === 0;
+}
+
+/* ====== SUBMIT ORDER ====== */
+async function submitOrder() {
+  const items = DATA.products
+    .filter(p => (cart[p.sku] || 0) > 0)
+    .map(p => ({ sku: p.sku, name: p.name, price: p.price, quantity: cart[p.sku], total: cart[p.sku] * p.price }));
+  if (items.length === 0) return;
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Оформление...';
+
+  const total = items.reduce((s, i) => s + i.total, 0);
+  const order = {
+    id: genOrderId(), date: todayStr(),
+    partnerLogin: currentUser.login, partnerName: currentUser.displayName,
+    brand: DATA.settings.brand, month: DATA.settings.month,
+    address: DATA.settings.address, info: DATA.settings.info,
+    items: items, total: total
+  };
+
+  // Save to shared DATA (for admin panel in same session)
+  DATA.orders.push(order);
+
+  // Save to partner's local history
+  savePartnerOrder(currentUser.login, order);
+
+  // Generate Excel blob
+  const excelBlob = generateOrderExcelBlob(order);
+
+  // Download Excel for partner
+  downloadBlob(excelBlob, 'Заказ_' + order.id + '.xlsx');
+
+  // Send Excel to Telegram
+  let tgOk = false;
+  try {
+    tgOk = await sendExcelToTelegram(order, excelBlob);
+  } catch(e) {
+    console.error('Telegram send failed:', e);
+  }
+
+  cart = {};
+
+  // Show thank you modal
+  document.getElementById('thankyou-order-id').textContent = 'Номер заказа: ' + order.id;
+  const tgStatus = document.getElementById('thankyou-telegram-status');
+  tgStatus.innerHTML = tgOk
+    ? '<span class="status-sent">✓ Заказ отправлен администратору</span>'
+    : '<span class="status-failed">⚠ Не удалось отправить администратору. Excel скачан на ваше устройство.</span>';
+  show('thankyou-modal');
+
+  btn.disabled = false;
+  btn.textContent = 'Оформить заказ';
+}
+
+function closeThankyou() {
+  hide('thankyou-modal');
+  renderProducts();
+}
+
+/* ====== EXCEL GENERATION ====== */
+function generateOrderExcelBlob(order) {
+  const wb = XLSX.utils.book_new();
+  const rows = [
+    ['Заказ', order.id], ['Дата', order.date], ['Партнёр', order.partnerName],
+    ['Бренд', order.brand], ['Месяц', order.month], ['Адрес', order.address],
+    ['Доп. информация', order.info], [],
+    ['SKU', 'Наименование', 'Цена', 'Количество', 'Сумма']
+  ];
+  order.items.forEach(i => rows.push([i.sku, i.name, i.price, i.quantity, i.total]));
+  rows.push([], ['', '', '', 'ИТОГО:', order.total]);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:14},{wch:24},{wch:12},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Заказ');
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadOrderExcel(order) {
+  const blob = generateOrderExcelBlob(order);
+  downloadBlob(blob, 'Заказ_' + order.id + '.xlsx');
+}
+
+function exportAllExcel() {
+  const allOrders = DATA.orders;
+  if (allOrders.length === 0) { showToast('Нет заказов для экспорта'); return; }
+  const wb = XLSX.utils.book_new();
+  const summaryRows = [['ID', 'Дата', 'Партнёр', 'Бренд', 'Месяц', 'Адрес', 'Итого']];
+  allOrders.forEach(o => summaryRows.push([o.id, o.date, o.partnerName, o.brand, o.month, o.address, o.total]));
+  const sws = XLSX.utils.aoa_to_sheet(summaryRows);
+  sws['!cols'] = [{wch:20},{wch:20},{wch:16},{wch:20},{wch:14},{wch:30},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, sws, 'Все заказы');
+  allOrders.forEach((order, idx) => {
+    const rows = [['Заказ',order.id],['Дата',order.date],['Партнёр',order.partnerName],['Бренд',order.brand],[],['SKU','Наименование','Цена','Количество','Сумма']];
+    order.items.forEach(i => rows.push([i.sku, i.name, i.price, i.quantity, i.total]));
+    rows.push([],['','','','ИТОГО:',order.total]);
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:24},{wch:12},{wch:14},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws, ('Заказ '+(idx+1)).substring(0,31));
+  });
+  XLSX.writeFile(wb, 'Все_заказы.xlsx');
+}
+
+/* ====== TELEGRAM SEND ====== */
+async function sendExcelToTelegram(order, blob) {
+  const caption = `📦 Новый заказ!\n\n👤 Партнёр: ${order.partnerName}\n📅 Дата: ${order.date}\n🏷 Бренд: ${order.brand}\n📍 Адрес: ${order.address}\n\n📋 Товары:\n${order.items.map(i => `  • ${i.sku} — ${i.name}: ${i.quantity} шт × ${fmt(i.price)} = ${fmt(i.total)}`).join('\n')}\n\n💰 ИТОГО: ${fmt(order.total)}\n\n🆔 ${order.id}`;
+
+  const formData = new FormData();
+  formData.append('chat_id', TG_CHAT_ID);
+  formData.append('caption', caption);
+  formData.append('document', blob, 'Заказ_' + order.partnerName + '_' + order.id + '.xlsx');
+
+  const res = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument`, {
+    method: 'POST',
+    body: formData
+  });
+
+  const data = await res.json();
+  return data.ok === true;
+}
+
+/* ====== PARTNER HISTORY ====== */
+function renderPartnerHistory() {
+  const container = document.getElementById('partner-history-list');
+  const orders = getPartnerOrders(currentUser.login);
+
+  if (orders.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:48px 0"><div style="font-size:48px;opacity:.3;margin-bottom:12px">📂</div><h3 style="font-weight:600;font-size:16px;margin-bottom:4px">Нет заказов</h3><p style="font-size:14px;color:var(--fg-muted)">Ваши заказы появятся здесь после оформления</p></div>';
+    return;
+  }
+
+  container.innerHTML = orders.map(order => {
+    const itemsHtml = order.items.map(i =>
+      `<div class="order-item-row"><span><strong>${esc(i.sku)}</strong> — ${esc(i.name)}</span><span>${i.quantity} × ${fmt(i.price)} = <strong>${fmt(i.total)}</strong></span></div>`
+    ).join('');
+    return `<div class="glass order-card"><div class="glass-p">
+      <div class="flex-between" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.06)">
+        <span style="font-weight:700;font-size:14px">${esc(order.id)}</span>
+        <span style="font-size:13px;color:var(--fg-muted)">${esc(order.date)}</span>
+      </div>
+      <div class="order-meta">
+        <div><strong>Бренд:</strong> <span style="color:var(--fg-muted)">${esc(order.brand)}</span></div>
+        <div><strong>Месяц:</strong> <span style="color:var(--fg-muted)">${esc(order.month)}</span></div>
+      </div>
+      <div class="order-items">${itemsHtml}</div>
+      <div class="flex-between" style="padding-top:12px;border-top:1px solid rgba(255,255,255,.06)">
+        <p style="font-size:16px;font-weight:700;color:var(--accent)">Итого: ${fmt(order.total)}</p>
+        <button class="btn btn-glass btn-sm" onclick='downloadOrderExcel(${JSON.stringify(order).replace(/'/g,"\\u0027")})'>⬇ Скачать Excel</button>
+      </div>
+    </div></div>`;
+  }).join('');
+}
+
+/* ====== ADMIN ORDERS PANEL ====== */
+function renderAdminOrders() {
+  const container = document.getElementById('admin-orders-list');
+  if (DATA.orders.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:48px 0"><div style="font-size:48px;opacity:.3;margin-bottom:12px">📄</div><h3 style="font-weight:600;font-size:16px;margin-bottom:4px">Нет заказов</h3><p style="font-size:14px;color:var(--fg-muted)">Заказы партнёров появятся здесь</p></div>';
+    return;
+  }
+  container.innerHTML = [...DATA.orders].reverse().map(order => {
+    const itemsHtml = order.items.map(i =>
+      `<div class="order-item-row"><span><strong>${esc(i.sku)}</strong> — ${esc(i.name)}</span><span>${i.quantity} × ${fmt(i.price)} = <strong>${fmt(i.total)}</strong></span></div>`
+    ).join('');
+    return `<div class="glass order-card"><div class="glass-p">
+      <div class="flex-between" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:14px">${esc(order.id)}</span>
+          <span class="badge badge-admin">${esc(order.partnerName)}</span>
+        </div>
+        <span style="font-size:13px;color:var(--fg-muted)">${esc(order.date)}</span>
+      </div>
+      <div class="order-meta">
+        <div><strong>Бренд:</strong> <span style="color:var(--fg-muted)">${esc(order.brand)}</span></div>
+        <div><strong>Месяц:</strong> <span style="color:var(--fg-muted)">${esc(order.month)}</span></div>
+        <div><strong>Адрес:</strong> <span style="color:var(--fg-muted)">${esc(order.address)}</span></div>
+      </div>
+      <div class="order-items">${itemsHtml}</div>
+      <div class="flex-between" style="padding-top:12px;border-top:1px solid rgba(255,255,255,.06)">
+        <p style="font-size:16px;font-weight:700;color:var(--accent)">Итого: ${fmt(order.total)}</p>
+        <button class="btn btn-glass btn-sm" onclick="downloadOrderExcel(DATA.orders.find(o=>o.id==='${order.id}'))">⬇ Выгрузить в Excel</button>
+      </div>
+    </div></div>`;
+  }).join('');
+}
+
+/* ====== SETTINGS ====== */
+function renderSettings() {
+  document.getElementById('s-brand').value = DATA.settings.brand;
+  document.getElementById('s-month').value = DATA.settings.month;
+  document.getElementById('s-address').value = DATA.settings.address;
+  document.getElementById('s-info').value = DATA.settings.info;
+  renderSettingsProducts();
+  renderSettingsUsers();
+}
+function renderSettingsProducts() {
+  document.getElementById('settings-products').innerHTML = DATA.products.map((p, i) =>
+    `<div class="settings-row">
+      <div><label>SKU</label><input value="${esc(p.sku)}" onchange="DATA.products[${i}].sku=this.value" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <div><label>Наименование</label><input value="${esc(p.name)}" onchange="DATA.products[${i}].name=this.value" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <div><label>Цена</label><input type="number" value="${p.price}" onchange="DATA.products[${i}].price=Number(this.value)" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <button class="btn btn-glass btn-sm btn-danger" onclick="deleteProduct(${i})" style="height:38px;align-self:end">🗑</button>
+    </div>`
+  ).join('');
+}
+function addProduct() { DATA.products.push({ sku:'SKU'+String(DATA.products.length+1).padStart(3,'0'), name:'Новый товар', price:1000 }); renderSettingsProducts(); }
+function deleteProduct(i) { DATA.products.splice(i,1); renderSettingsProducts(); }
+function renderSettingsUsers() {
+  document.getElementById('settings-users').innerHTML = DATA.users.map((u, i) =>
+    `<div class="user-row">
+      <div><label>Логин</label><input value="${esc(u.login)}" onchange="DATA.users[${i}].login=this.value;DATA.users[${i}].displayName=this.value+(DATA.users[${i}].role==='admin'?' (Администратор)':'')" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <div><label>Пароль</label><input value="${esc(u.password)}" onchange="DATA.users[${i}].password=this.value" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <div><label>Роль</label><select onchange="DATA.users[${i}].role=this.value;DATA.users[${i}].displayName=DATA.users[${i}].login+(this.value==='admin'?' (Администратор)':'')" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"><option value="admin" ${u.role==='admin'?'selected':''}>Администратор</option><option value="partner" ${u.role==='partner'?'selected':''}>Партнёр</option></select></div>
+      <button class="btn btn-glass btn-sm btn-danger" onclick="deleteUser(${i})" style="height:38px;align-self:end">🗑</button>
+    </div>`
+  ).join('');
+}
+function addUser() { DATA.users.push({id:String(nextUserId++),login:'Новый',password:'111',role:'partner',displayName:'Новый'}); renderSettingsUsers(); }
+function deleteUser(i) { if(DATA.users.length<=1){showToast('Нельзя удалить последнего пользователя',true);return;} DATA.users.splice(i,1); renderSettingsUsers(); }
+function saveSettings() {
+  DATA.settings.brand = document.getElementById('s-brand').value;
+  DATA.settings.month = document.getElementById('s-month').value;
+  DATA.settings.address = document.getElementById('s-address').value;
+  DATA.settings.info = document.getElementById('s-info').value;
+  showToast('Настройки сохранены');
+}
+</script>
+</body>
+</html>
