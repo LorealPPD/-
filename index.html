@@ -265,12 +265,13 @@ label{display:block;font-size:11px;font-weight:600;color:var(--fg-muted);text-tr
 const TG_BOT_TOKEN = '8588386935:AAG27X4DSCO48gpndSiAd6uAxMeMJJ_M4V0';
 const TG_CHAT_ID = '326943946';
 
-/* ====== DATA STORE ====== */
+/* ====== DATA STORE with localStorage persistence ====== */
 let currentUser = null;
 let currentTab = 'orders';
 let cart = {};
 
-const DATA = {
+// Default data (used on first visit only)
+const DEFAULT_DATA = {
   users: [
     { id: '1', login: 'Di', password: '111', role: 'admin', displayName: 'Di (Администратор)' },
     { id: '2', login: 'Сергей', password: '111', role: 'partner', displayName: 'Сергей' }
@@ -289,8 +290,32 @@ const DATA = {
   orders: []
 };
 
-let nextUserId = 3;
-let nextOrderId = 1;
+// Load DATA from localStorage or use defaults
+function loadData() {
+  try {
+    const saved = localStorage.getItem('ppd_data');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Merge with defaults to ensure new fields exist
+      return {
+        users: parsed.users || DEFAULT_DATA.users,
+        settings: parsed.settings || DEFAULT_DATA.settings,
+        products: parsed.products || DEFAULT_DATA.products,
+        orders: parsed.orders || []
+      };
+    }
+  } catch(e) { console.error('Load error:', e); }
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+}
+
+function saveData() {
+  try { localStorage.setItem('ppd_data', JSON.stringify(DATA)); } catch(e) { console.error('Save error:', e); }
+}
+
+const DATA = loadData();
+
+let nextUserId = DATA.users.length + 1;
+let nextOrderId = DATA.orders.length + 1;
 
 /* ====== LOCAL STORAGE for partner history ====== */
 function getPartnerOrders(login) {
@@ -300,6 +325,21 @@ function savePartnerOrder(login, order) {
   const orders = getPartnerOrders(login);
   orders.unshift(order);
   try { localStorage.setItem('orders_' + login, JSON.stringify(orders)); } catch(e) {}
+}
+
+/* ====== SESSION persistence ====== */
+function saveSession(user) {
+  try { localStorage.setItem('ppd_session', JSON.stringify({ login: user.login, role: user.role })); } catch(e) {}
+}
+function loadSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem('ppd_session') || 'null');
+    if (s && s.login) return DATA.users.find(u => u.login === s.login);
+  } catch(e) {}
+  return null;
+}
+function clearSession() {
+  try { localStorage.removeItem('ppd_session'); } catch(e) {}
 }
 
 /* ====== HELPERS ====== */
@@ -328,15 +368,28 @@ document.getElementById('login-form').addEventListener('submit', function(e) {
     return;
   }
   currentUser = user;
+  saveSession(user);
   hide('login-error');
   hide('login-screen');
   show('main-screen');
   initMainScreen();
 });
 
+// Auto-login on page load
+(function autoLogin() {
+  const savedUser = loadSession();
+  if (savedUser) {
+    currentUser = savedUser;
+    hide('login-screen');
+    show('main-screen');
+    initMainScreen();
+  }
+})();
+
 function logout() {
   currentUser = null;
   cart = {};
+  clearSession();
   document.getElementById('login-input').value = '';
   document.getElementById('password-input').value = '';
   hide('main-screen');
@@ -442,8 +495,9 @@ async function submitOrder() {
     items: items, total: total
   };
 
-  // Save to shared DATA (for admin panel in same session)
+  // Save to shared DATA and persist
   DATA.orders.push(order);
+  saveData();
 
   // Save to partner's local history
   savePartnerOrder(currentUser.login, order);
@@ -620,32 +674,33 @@ function renderSettings() {
 function renderSettingsProducts() {
   document.getElementById('settings-products').innerHTML = DATA.products.map((p, i) =>
     `<div class="settings-row">
-      <div><label>SKU</label><input value="${esc(p.sku)}" onchange="DATA.products[${i}].sku=this.value" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
-      <div><label>Наименование</label><input value="${esc(p.name)}" onchange="DATA.products[${i}].name=this.value" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
-      <div><label>Цена</label><input type="number" value="${p.price}" onchange="DATA.products[${i}].price=Number(this.value)" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <div><label>SKU</label><input value="${esc(p.sku)}" onchange="DATA.products[${i}].sku=this.value;saveData()" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <div><label>Наименование</label><input value="${esc(p.name)}" onchange="DATA.products[${i}].name=this.value;saveData()" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <div><label>Цена</label><input type="number" value="${p.price}" onchange="DATA.products[${i}].price=Number(this.value);saveData()" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
       <button class="btn btn-glass btn-sm btn-danger" onclick="deleteProduct(${i})" style="height:38px;align-self:end">🗑</button>
     </div>`
   ).join('');
 }
-function addProduct() { DATA.products.push({ sku:'SKU'+String(DATA.products.length+1).padStart(3,'0'), name:'Новый товар', price:1000 }); renderSettingsProducts(); }
-function deleteProduct(i) { DATA.products.splice(i,1); renderSettingsProducts(); }
+function addProduct() { DATA.products.push({ sku:'SKU'+String(DATA.products.length+1).padStart(3,'0'), name:'Новый товар', price:1000 }); saveData(); renderSettingsProducts(); }
+function deleteProduct(i) { DATA.products.splice(i,1); saveData(); renderSettingsProducts(); }
 function renderSettingsUsers() {
   document.getElementById('settings-users').innerHTML = DATA.users.map((u, i) =>
     `<div class="user-row">
-      <div><label>Логин</label><input value="${esc(u.login)}" onchange="DATA.users[${i}].login=this.value;DATA.users[${i}].displayName=this.value+(DATA.users[${i}].role==='admin'?' (Администратор)':'')" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
-      <div><label>Пароль</label><input value="${esc(u.password)}" onchange="DATA.users[${i}].password=this.value" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
-      <div><label>Роль</label><select onchange="DATA.users[${i}].role=this.value;DATA.users[${i}].displayName=DATA.users[${i}].login+(this.value==='admin'?' (Администратор)':'')" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"><option value="admin" ${u.role==='admin'?'selected':''}>Администратор</option><option value="partner" ${u.role==='partner'?'selected':''}>Партнёр</option></select></div>
+      <div><label>Логин</label><input value="${esc(u.login)}" onchange="DATA.users[${i}].login=this.value;DATA.users[${i}].displayName=this.value+(DATA.users[${i}].role==='admin'?' (Администратор)':'');saveData()" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <div><label>Пароль</label><input value="${esc(u.password)}" onchange="DATA.users[${i}].password=this.value;saveData()" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"></div>
+      <div><label>Роль</label><select onchange="DATA.users[${i}].role=this.value;DATA.users[${i}].displayName=DATA.users[${i}].login+(this.value==='admin'?' (Администратор)':'');saveData()" style="height:38px;font-size:14px;border-radius:var(--radius-xs)"><option value="admin" ${u.role==='admin'?'selected':''}>Администратор</option><option value="partner" ${u.role==='partner'?'selected':''}>Партнёр</option></select></div>
       <button class="btn btn-glass btn-sm btn-danger" onclick="deleteUser(${i})" style="height:38px;align-self:end">🗑</button>
     </div>`
   ).join('');
 }
-function addUser() { DATA.users.push({id:String(nextUserId++),login:'Новый',password:'111',role:'partner',displayName:'Новый'}); renderSettingsUsers(); }
-function deleteUser(i) { if(DATA.users.length<=1){showToast('Нельзя удалить последнего пользователя',true);return;} DATA.users.splice(i,1); renderSettingsUsers(); }
+function addUser() { DATA.users.push({id:String(nextUserId++),login:'Новый',password:'111',role:'partner',displayName:'Новый'}); saveData(); renderSettingsUsers(); }
+function deleteUser(i) { if(DATA.users.length<=1){showToast('Нельзя удалить последнего пользователя',true);return;} DATA.users.splice(i,1); saveData(); renderSettingsUsers(); }
 function saveSettings() {
   DATA.settings.brand = document.getElementById('s-brand').value;
   DATA.settings.month = document.getElementById('s-month').value;
   DATA.settings.address = document.getElementById('s-address').value;
   DATA.settings.info = document.getElementById('s-info').value;
+  saveData();
   showToast('Настройки сохранены');
 }
 </script>
