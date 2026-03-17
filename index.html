@@ -451,25 +451,19 @@ async function submitOrder() {
   // Generate Excel blob
   const excelBlob = generateOrderExcelBlob(order);
 
-  // Download Excel for partner
-  downloadBlob(excelBlob, 'Заказ_' + order.id + '.xlsx');
-
-  // Send Excel to Telegram
-  let tgOk = false;
+  // Send Excel to Telegram (silently, partner doesn't see errors)
   try {
-    tgOk = await sendExcelToTelegram(order, excelBlob);
+    await sendExcelToTelegram(order, excelBlob);
   } catch(e) {
     console.error('Telegram send failed:', e);
   }
 
   cart = {};
 
-  // Show thank you modal
+  // Show thank you modal (no Telegram status shown to partner)
   document.getElementById('thankyou-order-id').textContent = 'Номер заказа: ' + order.id;
   const tgStatus = document.getElementById('thankyou-telegram-status');
-  tgStatus.innerHTML = tgOk
-    ? '<span class="status-sent">✓ Заказ отправлен администратору</span>'
-    : '<span class="status-failed">⚠ Не удалось отправить администратору. Excel скачан на ваше устройство.</span>';
+  tgStatus.innerHTML = '';
   show('thankyou-modal');
 
   btn.disabled = false;
