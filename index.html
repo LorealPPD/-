@@ -583,18 +583,42 @@ function exportAllExcel() {
 async function sendExcelToTelegram(order, blob) {
   const caption = `📦 Новый заказ!\n\n👤 Партнёр: ${order.partnerName}\n📅 Дата: ${order.date}\n🏷 Бренд: ${order.brand}\n📍 Адрес: ${order.address}\n\n📋 Товары:\n${order.items.map(i => `  • ${i.sku} — ${i.name}: ${i.quantity} шт × ${fmt(i.price)} = ${fmt(i.total)}`).join('\n')}\n\n💰 ИТОГО: ${fmt(order.total)}\n\n🆔 ${order.id}`;
 
-  const formData = new FormData();
-  formData.append('chat_id', TG_CHAT_ID);
-  formData.append('caption', caption);
-  formData.append('document', blob, 'Заказ_' + order.partnerName + '_' + order.id + '.xlsx');
+  // Method 1: Try sending Excel document
+  try {
+    const formData = new FormData();
+    formData.append('chat_id', TG_CHAT_ID);
+    formData.append('caption', caption);
+    formData.append('document', blob, 'Zakazz_' + order.id + '.xlsx');
+    const res = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.ok) return true;
+  } catch(e) {
+    console.error('TG sendDocument failed:', e);
+  }
 
-  const res = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument`, {
-    method: 'POST',
-    body: formData
-  });
+  // Method 2: Fallback — send as text message (if document upload failed)
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT_ID, text: caption, parse_mode: '' })
+    });
+    const data = await res.json();
+    return data.ok === true;
+  } catch(e) {
+    console.error('TG sendMessage also failed:', e);
+  }
 
-  const data = await res.json();
-  return data.ok === true;
+  // Method 3: Last resort — image beacon
+  try {
+    const encoded = encodeURIComponent(caption);
+    await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage?chat_id=${TG_CHAT_ID}&text=${encoded}`);
+  } catch(e) {}
+
+  return false;
 }
 
 /* ====== PARTNER HISTORY ====== */
